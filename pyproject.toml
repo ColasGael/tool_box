@@ -26,9 +26,10 @@ version = "0.0.1"
 
 [project.optional-dependencies]
 yt-dl = [
+    "tinytag",
     # PyPi package is outdated, use executable instead
     # See: https://github.com/ytdl-org/youtube-dl/releases/tag/2021.12.17
-    "youtube-dl",
+    # "youtube-dl",
 ]
 all = ["tool_box[yt-dl]"]
 

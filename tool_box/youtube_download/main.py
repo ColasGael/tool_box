@@ -2,63 +2,73 @@
 
 import argparse
 import os
-import re
 import subprocess
 
-# import audio_metadata
+try:
+    from tinytag import TinyTag
+    AUDIO_METADATA_AVAILABLE = True
+except ImportError:
+    AUDIO_METADATA_AVAILABLE = False
 
-# Assume it is saved in the same directory as this file
-YT_DL_EXEC_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'youtube-dl')
+YT_DL_EXEC_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "youtube-dl")
+
+# Assume they are saved in the same directory as this file
 DEFAULT_YT_DL_AUDIO_CONF = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'youtube-dl_audio.conf')
 DEFAULT_YT_DL_VIDEO_CONF = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'youtube-dl_video.conf')
 
-SEP_CHAR = '#'
 DEFAULT_TEMPLATE = '%(title)s.%(ext)s'
+# AUDIO_TEMPLARE = '%(artist)s#%(title)s.%(ext)s'
 # DEFAULT_AUDIO_DIR = "D:\\Documents\\Media\\music\\playlists"
 DEFAULT_AUDIO_DIR = "/home/colasg/Downloads"
 # DEFAULT_VIDEO_DIR = "D:\\_temp"
 DEFAULT_VIDEO_DIR = "/home/colasg/Downloads"
 
 
-def print_metadata(filepath):
-    metadata = audio_metadata.load(filepath).get('tags', {})
+def get_metadata(filepath):
+    metadata = TinyTag.get(filepath)
     useful_metadata = {
-		'artist': metadata.get('artist', 'NA'),
-		'album': metadata.get('album', 'NA'),
-		'title': metadata.get('title', 'NA'),
-		'genre': metadata.get('genre', 'NA'),
+		'artist': metadata.artist,
+		'album': metadata.album,
+		'title': metadata.title,
+		'genre': metadata.genre,
     }
-    print(useful_metadata)
+    return useful_metadata
 
 
-def audiofiles_postprocessing(out_dir, filepaths):
-    all_dir = [os.path.abspath(x[0]) for x in os.walk(out_dir)]
+def audiofiles_postprocessing(temp_out_dir):
+    out_dir = os.path.dirname(temp_out_dir)
 
     new_filepaths = []
-    for filepath in filepaths:
-        out_dir, filename = os.path.split(filepath)
-        artist = filename.split(SEP_CHAR)[0].replace('_', ' ')
+    for filename in os.listdir(temp_out_dir):
+        filepath = os.path.join(temp_out_dir, filename)
+        if not os.path.isfile(filepath):
+            continue
 
-        save_dir = next((dir for dir in all_dir if artist == os.path.basename(dir)), "")
+        metadata = get_metadata(filepath)
+        print("Metadata for file {}: {}".format(filepath, metadata))
 
-        if len(save_dir) == 0:
-            save_dir = os.path.join(out_dir, artist)
-            print("Creating new artist directory: {}".format(save_dir))
-            os.mkdir(save_dir)
-            all_dir.append(save_dir)
+        artist = metadata['artist']
+        title = metadata['title']
+        file_ext = os.path.splitext(filename)[1]
 
-        new_filepath = os.path.join(save_dir, filename.lower().replace('_', '-').replace(SEP_CHAR, '_'))
+        artist_dir = os.path.join(out_dir, artist)
+        os.makedirs(artist_dir, exist_ok=True)
+
+        new_filename = f"{artist.lower().replace(' ', '-')}_{title.lower().replace(' ', '-')}{file_ext}"
+        new_filepath = os.path.join(artist_dir, new_filename)
 
         if os.path.isfile(new_filepath):
-            print("Audio file {} already exists.".format(new_filepath))
-            print("Remove duplicate file {}.".format(filepath))
+            print(f"Audio file {new_filepath} already exists, remove duplicate.")
             os.remove(filepath)
             continue
 
         os.rename(filepath, new_filepath)
         new_filepaths.append(new_filepath)
-        print(new_filepath)
-        # print_metadata(new_filepath)
+
+    print(f"Remove temporary directory {temp_out_dir}.")
+    os.rmdir(temp_out_dir)
+
+    print(f"Post-processed audio files: {new_filepaths}")
 
     return new_filepaths
 
@@ -85,17 +95,13 @@ def get_args():
                         type=str,
                         default="/usr/bin/",
                         help="Directory of the ffmpeg binary (required for audio).")
-    parser.add_argument('--executable-path',
-                        type=str,
-                        default=YT_DL_EXEC_PATH,
-                        help="Path to the youtube-dl executable.")
     parser.add_argument('--video-template',
                         type=str,
                         default=DEFAULT_TEMPLATE,
                         help="Filename template of the downloaded video(s).")
     parser.add_argument('--audio-template',
                         type=str,
-                        default='%(artist)s{}%(track)s.%(ext)s'.format(SEP_CHAR),
+                        default=DEFAULT_TEMPLATE,
                         help="Filename template of the downloaded audio(s).")
     parser.add_argument('--video-out-dir',
                         type=str,
@@ -105,30 +111,34 @@ def get_args():
                         type=str,
                         default=DEFAULT_AUDIO_DIR,
                         help="Audio output directory.")
-    parser.add_argument('--audio_playlist',
-                        type=str,
-                        default="iPod_musique",
-                        help="Name of the playlist to create in 'audio_output_dir'.")
 
     args = parser.parse_args()
 
     # Handle both video and audio
     if args.audio_only:
         args.conf = args.audio_conf
-        args.out_dir = os.path.join(args.audio_out_dir, args.audio_playlist)
+        # Use a unique sub-directory to identify the file that needs to be post-processed
+        args.out_dir = os.path.join(args.audio_out_dir, "audio", f"tmp_audio_{os.getpid()}")
+        if os.path.exists(args.out_dir):
+            raise RuntimeError(f"Temporary audio output directory {args.out_dir} already exists.")
+        os.makedirs(args.out_dir)
         args.template = args.audio_template
     else:
         args.conf = args.video_conf
-        args.out_dir = args.video_out_dir
+        args.out_dir = os.path.join(args.audio_out_dir, "video")
+        os.makedirs(args.out_dir, exist_ok=True)
         args.template = args.video_template
+
+    args.conf = os.path.abspath(args.conf)
+    args.out_dir = os.path.abspath(args.out_dir)
 
     # Sanity checks
     if not os.path.isfile(args.conf):
-        raise RuntimeError("Configuration file {} does not exist.".format(os.path.abspath(args.conf)))
+        raise RuntimeError(f"Configuration file {args.conf} does not exist.")
     if not os.path.isdir(args.out_dir):
-        raise RuntimeError("Output directory {} does not exist.".format(args.out_dir))
+        raise RuntimeError(f"Output directory {args.out_dir} does not exist.")
     if (args.audio_only and not os.path.isdir(args.ffmpeg_location)):
-        raise RuntimeError("FFMPEG bin directory {} does not exist.".format(args.ffmpeg_location))
+        raise RuntimeError(f"FFMPEG bin directory {args.ffmpeg_location} does not exist.")
     if not args.template:
         args.template = DEFAULT_TEMPLATE
 
@@ -138,21 +148,14 @@ def get_args():
     return args
 
 
-def main(args):
+def main():
     args = get_args()
-    youtube_dl_cmd = [args.executable_path, *args.video_urls, '--output', args.output, '--ffmpeg-location', args.ffmpeg_location, '--config-location', args.conf]
-    stdout_result = subprocess.Popen(youtube_dl_cmd, stdout=subprocess.PIPE, universal_newlines=True).communicate()[0]
-    print(stdout_result)
+    youtube_dl_cmd = [YT_DL_EXEC_PATH, *args.video_urls, '--output', args.output, '--ffmpeg-location', args.ffmpeg_location, '--config-location', args.conf]
+    subprocess.run(youtube_dl_cmd)
 
-    pattern = os.path.join(args.out_dir, "").replace("\\", "\\\\") + "[0-9a-zA-Z{}_\-\.]+".format(SEP_CHAR)
-    filepaths = re.findall(pattern, stdout_result)
-    filepaths = [filepath for filepath in set(filepaths) if os.path.isfile(filepath)]
-
-    print("Downloaded output files in {}:".format(args.out_dir))
-    if args.audio_only:
-        filepaths = audiofiles_postprocessing(args.out_dir, filepaths)
-    else:
-        print('\n'.join(filepaths))
+    # Post-process the audio files
+    if args.audio_only and AUDIO_METADATA_AVAILABLE:
+        audiofiles_postprocessing(args.out_dir)
 
 
 if __name__=='__main__':
