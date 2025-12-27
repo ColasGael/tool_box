@@ -1,0 +1,28 @@
+# See: https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
+
+[build-system]
+# PEP 660 – Editable installs for pyproject.toml based builds (wheel based)
+# Requires: setuptools>=64
+requires = [
+    "setuptools>=64",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tool_box"
+authors = [
+    {name = "Gael Colas"},
+]
+description = "Collections of tools to automate my life"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = []
+version = "0.0.1"
+
+[project.urls]
+homepage = "https://github.com/ColasGael/tool_box"
