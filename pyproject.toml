@@ -24,5 +24,14 @@ classifiers = [
 dependencies = []
 version = "0.0.1"
 
+[project.optional-dependencies]
+yt-dl = [
+    "youtube-dl",
+]
+all = ["tool_box[yt-dl]"]
+
+[project.scripts]
+yt-dl = "tool_box.youtube_download.main:main"
+
 [project.urls]
 homepage = "https://github.com/ColasGael/tool_box"
