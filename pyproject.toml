@@ -31,10 +31,17 @@ yt-dl = [
     # See: https://github.com/ytdl-org/youtube-dl/releases/tag/2021.12.17
     # "youtube-dl",
 ]
-all = ["tool_box[yt-dl]"]
+concert-planner = [
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
+    # See: https://github.com/googleapis/google-api-python-client
+    "google-api-python-client",
+]
+all = ["tool_box[yt-dl,concert-planner]"]
 
 [project.scripts]
 yt-dl = "tool_box.youtube_download.main:main"
+concert-planner = "tool_box.concert_planner.main:main"
 
 [project.urls]
 homepage = "https://github.com/ColasGael/tool_box"
