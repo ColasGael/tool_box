@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import heapq
 import os.path
 import requests
 from typing import Optional
@@ -71,7 +72,46 @@ def find_concerts_ticketmaster(city, months_ahead):
 
 
 def build_playlist(client_secrets, playlist_title, city, months_ahead, artists, max_videos):
+    """Create a YouTube playlist of the most popular songs from upcoming concerts in a given city.
+
+    Args:
+        client_secrets (str): Path to the YouTube client secrets JSON file.
+        playlist_title (str): Title of the YouTube playlist to create.
+        city (str): City to search for upcoming concerts.
+        months_ahead (int): Number of months ahead to look for concerts.
+        artists (list of str): List of artist names with upcoming concerts.
+        max_videos (int): Maximum number of videos to add to the playlist. If -1, add all found videos.
+
+    Notes:
+        - The playlist will contain the most popular song from each artist, sorted by view count.
+        - Videos longer than 15 minutes are skipped.
+    """
+
     youtube = Youtube.login(client_secrets)
+    # Songs sorted by view count
+    songs = []
+    for artist in artists:
+        # Find the artist most popular song
+        artist_id = youtube.find_artist_channel(artist)
+        if not artist_id:
+            continue
+        video_id = youtube.find_channel_most_popular_video(artist_id)
+        if not video_id:
+            continue
+        # Get metrics about the video
+        info_names = {
+            "contentDetails": ["duration"],
+            "statistics": ["viewCount"],
+        }
+        video_infos = youtube.get_video_infos(video_id, info_names)
+        # Filter out long videos (>15 minutes)
+        video_duration = video_infos["duration"]
+        if video_duration > 15 * 60:
+            print(f"Skipping {artist} video {video_id} due to long duration ({video_duration} seconds).")
+            continue
+        # Sort by view count
+        view_count = int(video_infos["viewCount"])
+        heapq.heappush(songs, (-view_count, video_id))
     # Delete the previous month's playlist
     existing_playlist_id = youtube.find_playlist_by_title(playlist_title)
     if existing_playlist_id:
@@ -81,22 +121,14 @@ def build_playlist(client_secrets, playlist_title, city, months_ahead, artists, 
         title=playlist_title,
         description=f"Upcoming concerts in {city} for the next {months_ahead} months.",
     )
-    for artist in artists:
-        # Find the artist most popular song
-        artist_id = youtube.find_artist_channel(artist)
-        if not artist_id:
-            continue
-        video_id = youtube.find_channel_most_popular_video(artist_id)
-        if not video_id:
-            continue
-        # Filter out long videos (>15 minutes)
-        video_duration = youtube.get_video_duration(video_id)
-        if video_duration > 15 * 60:
-            print(f"Skipping {artist} video {video_id} due to long duration ({video_duration} seconds).")
-            continue
+    # Add the top max_videos songs to the playlist
+    # NOTE: the playlist will be sorted by decreasing number of views
+    playlist_idx = 0
+    while songs and (max_videos == -1 or playlist_idx < max_videos):
+        _, video_id = heapq.heappop(songs)
+        print(f"Adding video {video_id} to playlist ({playlist_idx}/{max_videos}).")
         youtube.add_video_to_playlist(video_id, playlist_id)
-    # Sort the videos by number of views (most viewed first)
-    youtube.sort_playlist(playlist_id, max_videos=max_videos)
+        playlist_idx += 1
 
 
 def main():

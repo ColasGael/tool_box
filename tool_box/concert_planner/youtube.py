@@ -1,4 +1,3 @@
-import heapq
 import json
 import os.path
 from typing import Optional
@@ -64,25 +63,40 @@ class Youtube(object):
             cls.YOUTUBE_API_SERVICE_NAME, cls.YOUTUBE_API_VERSION, credentials=credentials)
         return cls(youtube)
 
-    def get_video_infos(self, video_id: str, info_key: str) -> dict:
+    def get_video_infos(self, video_id: str, info_names: dict) -> dict:
         """Get specific information about a YouTube video.
 
         Args:
             video_id (str): ID of the YouTube video.
-            info_key (str): Key of the information to retrieve.
+            info_names (dict): Dictionary mapping part names to lists of info names to retrieve.
 
         Returns:
             dict: The requested information about the video.
         """
         video_request = self.client.videos().list(
-            part=info_key,
-            id=video_id
+            id=video_id,
+            part=",".join(info_names.keys()),
         )
         video_response = video_request.execute()
-        infos = video_response.get("items", [])[0].get(info_key, {})
+        items = video_response.get("items", [])
+        if not items:
+            raise ValueError(f"Video with ID {video_id} not found.")
+        video = items[0]
+        infos = {}
+        for part_name, info_names in info_names.items():
+            if part_name not in video:
+                raise ValueError(f"Part '{part_name}' not found in video data: {video}")
+            part_info = video[part_name]
+            for info_name in info_names:
+                if info_name not in part_info:
+                    raise ValueError(f"Info '{info_name}' not found in part '{part_name}': {part_info}")
+                info = part_info[info_name]
+                if info_name == "duration":
+                    info = self._parse_video_duration(info)
+                infos[info_name] = info
         return infos
 
-    def get_video_duration(self, video_id: str) -> int:
+    def _parse_video_duration(self, duration: str) -> int:
         """Get the duration of a YouTube video in seconds.
 
         Args:
@@ -91,8 +105,7 @@ class Youtube(object):
         Returns:
             int: Duration of the video in seconds.
         """
-        content_details = self.get_video_infos(video_id, "contentDetails")
-        duration = content_details.get("duration", "PT0S").replace('PT', '')
+        duration = duration.replace('PT', '')
         hours = minutes = seconds = 0
         if 'H' in duration:
             hours = int(duration.split('H')[0])
@@ -248,58 +261,3 @@ class Youtube(object):
         )
         response = request.execute()
         return response
-
-    def sort_playlist(self, playlist_id: str, max_videos=-1) -> None:
-        """Sort the videos in a YouTube playlist by number of views (most viewed first).
-
-        Args:
-            playlist_id (str): ID of the playlist to sort.
-            max_videos (int, default: -1): Maximum number of videos to keep in the playlist.
-                If -1, keep all videos.
-
-        Returns:
-            None
-        """
-        # Fetch all playlist items
-        request = self.client.playlistItems().list(
-            part="snippet,contentDetails",
-            playlistId=playlist_id,
-        )
-        response = request.execute()
-        items = response.get("items", [])
-
-        # Get video IDs and their view counts
-        videos = []
-        for item in items:
-            playlist_item_id = item["id"]
-            video_id = item["contentDetails"]["videoId"]
-            statistics = self.get_video_infos(video_id, "statistics")
-            view_count = int(statistics.get("viewCount", 0))
-            # Sort videos by view count (most viewed first)
-            heapq.heappush(videos, (-view_count, (video_id, playlist_item_id)))
-
-        # Reorder playlist items
-        index = 0
-        while videos:
-            _, (video_id, playlist_item_id) = heapq.heappop(videos)
-            if 0 < max_videos <= index:
-                # Remove excess videos
-                self.client.playlistItems().delete(
-                    id=playlist_item_id
-                ).execute()
-                continue
-            self.client.playlistItems().update(
-                part="snippet",
-                body={
-                    "id": playlist_item_id,
-                    "snippet": {
-                        "playlistId": playlist_id,
-                        "resourceId": {
-                            "kind": "youtube#video",
-                            "videoId": video_id
-                        },
-                        "position": index
-                    }
-                }
-            ).execute()
-            index += 1
