@@ -207,21 +207,19 @@ class Youtube(object):
         print(f"Deleted playlist {playlist_id}")
         return response
 
-    def create_playlist(self, title: str, description: str, private: bool = True) -> str:
+    def create_playlist(self, title: str, description: str, privacy_status: Optional[str] = None) -> str:
         """Create a YouTube playlist and return its ID.
 
         Args:
             title (str): Title of the playlist.
             description (str): Description of the playlist.
-            private (bool): Whether the playlist is private. Defaults to True.
+            privacy_status (str, default: "private"): Privacy status of the playlist.
 
         Returns:
             str: The ID of the created playlist.
         """
-        if private:
+        if privacy_status is None:
             privacy_status = "private"
-        else:
-            privacy_status = "public"
         request = self.client.playlists().insert(
             part="snippet,status",
             body={

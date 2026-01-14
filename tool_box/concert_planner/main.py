@@ -117,6 +117,7 @@ def build_playlist(client_secrets, playlist_title, playlist_description, artists
     playlist_id = youtube.create_playlist(
         title=playlist_title,
         description=playlist_description,
+        privacy_status="unlisted",
     )
     # Add the top max_videos songs to the playlist
     # NOTE: the playlist will be sorted by decreasing number of views
