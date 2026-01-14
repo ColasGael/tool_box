@@ -62,23 +62,20 @@ def get_args():
     return args
 
 
-def find_concerts_ticketmaster(city, months_ahead):
+def find_concerts_ticketmaster(city, start_date):
     ticketmaster = TicketMaster.login()
     # Cover the entire month, months_ahead months from now
-    this_month = datetime.datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    start_date = this_month.replace(month=this_month.month + months_ahead)
-    end_date = this_month.replace(month=this_month.month + months_ahead + 1)
+    end_date = start_date.replace(month=start_date.month + 1)
     return ticketmaster.find_upcoming_artists(city, start_date, end_date)
 
 
-def build_playlist(client_secrets, playlist_title, city, months_ahead, artists, max_videos):
+def build_playlist(client_secrets, playlist_title, playlist_description, artists, max_videos):
     """Create a YouTube playlist of the most popular songs from upcoming concerts in a given city.
 
     Args:
         client_secrets (str): Path to the YouTube client secrets JSON file.
         playlist_title (str): Title of the YouTube playlist to create.
-        city (str): City to search for upcoming concerts.
-        months_ahead (int): Number of months ahead to look for concerts.
+        playlist_description (str): Description of the YouTube playlist.
         artists (list of str): List of artist names with upcoming concerts.
         max_videos (int): Maximum number of videos to add to the playlist. If -1, add all found videos.
 
@@ -119,7 +116,7 @@ def build_playlist(client_secrets, playlist_title, city, months_ahead, artists, 
     # Create a new playlist
     playlist_id = youtube.create_playlist(
         title=playlist_title,
-        description=f"Upcoming concerts in {city} for the next {months_ahead} months.",
+        description=playlist_description,
     )
     # Add the top max_videos songs to the playlist
     # NOTE: the playlist will be sorted by decreasing number of views
@@ -133,10 +130,19 @@ def build_playlist(client_secrets, playlist_title, city, months_ahead, artists, 
 
 def main():
     args = get_args()
-    artists = find_concerts_ticketmaster(args.city, args.months_ahead)
+
+    # Find the start date of the upcoming month (months_ahead from now)
+    this_month = datetime.datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    start_date = this_month.replace(month=this_month.month + args.months_ahead)
+
+    # Find the artists performing that month in the given city
+    artists = find_concerts_ticketmaster(args.city, start_date)
     print(f"Found {len(artists)} upcoming artists in {args.city}: {artists}")
+
+    playlist_description = f"Upcoming concerts in {args.city} in {start_date.strftime('%B')}"
+    print(f"Building playlist for: {playlist_description}")
     build_playlist(
-        args.client_secrets, args.playlist_title, args.city, args.months_ahead, artists, args.max_videos)
+        args.client_secrets, args.playlist_title, playlist_description, artists, args.max_videos)
 
 
 if __name__ == "__main__":
