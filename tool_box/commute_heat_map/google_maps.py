@@ -1,17 +1,7 @@
 import os.path
 import requests
 
-
-class Point(object):
-    """A geographical point."""
-
-    def __init__(self, latitude: float, longitude: float):
-        self.latitude = latitude
-        self.longitude = longitude
-
-    def __repr__(self):
-        return f"Point(latitude={self.latitude}, longitude={self.longitude})"
-
+from tool_box.commute_heat_map.proj import Point
 
 class GoogleMaps(object):
     """Wrapper around the GoogleMap APIs.

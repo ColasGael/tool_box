@@ -37,7 +37,11 @@ concert-planner = [
     # See: https://github.com/googleapis/google-api-python-client
     "google-api-python-client",
 ]
-commute-heat-map = []
+commute-heat-map = [
+    "matplotlib",
+    "numpy",
+    "pyproj",
+]
 all = ["tool_box[yt-dl,concert-planner,commute-heat-map]"]
 
 [project.scripts]
