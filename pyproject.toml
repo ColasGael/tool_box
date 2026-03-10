@@ -40,6 +40,7 @@ concert-planner = [
 commute-heat-map = [
     "matplotlib",
     "numpy",
+    "Pillow",
     "pyproj",
     "scipy",
 ]

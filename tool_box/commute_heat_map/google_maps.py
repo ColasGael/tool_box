@@ -1,5 +1,9 @@
+import io
+import math
 import os.path
 import requests
+
+from PIL import Image
 
 from tool_box.commute_heat_map.proj import Point
 
@@ -9,12 +13,16 @@ class GoogleMaps(object):
     References:
     - Geocoding API: https://developers.google.com/maps/documentation/geocoding
     - Routes API: https://developers.google.com/maps/documentation/routes
+    - Static Maps API: https://developers.google.com/maps/documentation/maps-static
     """
 
     GEOCODING_API_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 
     ROUTES_API_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
     DURATION_FIELD = "staticDuration"
+
+    MAPS_STATIC_API_URL = "https://maps.googleapis.com/maps/api/staticmap"
+    STATIC_MAP_PIXEL_SIZE = 640  # Max size for free tier is 640x640
 
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -92,6 +100,62 @@ class GoogleMaps(object):
 
     def get_commute_time(self, origin: Point | str, destination: Point | str) -> int:
         return self.get_travel_time(origin, destination, travel_mode="TRANSIT")
+
+    def render_static_map(self, center: str, radius: int) -> Image.Image:
+        """Build a static map centered on the specified location and covering the specified radius.
+
+        Args:
+            center: The center of the map (address or "lat,lng").
+            radius: The radius (in m) around the center to cover.
+
+        Returns:
+            Image.Image: The cropped static map image covering the specified area.
+
+        Documentation:
+        - Styles: https://developers.google.com/maps/documentation/maps-static/styling
+        """
+        center_point = self.get_point(center)
+
+        def meters_per_pixel(zoom: int) -> float:
+            return 156543.03392 * math.cos(center_point.latitude * math.pi / 180) / (2 ** zoom)
+
+        # Find the zoom level that covers slightly more than the area of interest
+        image_length = 2 * radius + 1 # m
+        zoom = 0
+        while image_length > 2 * radius:
+            zoom += 1
+            image_length = meters_per_pixel(zoom) * self.STATIC_MAP_PIXEL_SIZE
+        # Decrease the zoom to ensure we cover the whole area of interest
+        zoom -= 1
+
+        # Query the static map API
+        params = [
+            ("key", self.api_key),
+            ("format", "png"),
+            ("center", center),
+            ("zoom", zoom),
+            ("size", f"{self.STATIC_MAP_PIXEL_SIZE}x{self.STATIC_MAP_PIXEL_SIZE}"),
+            ("maptype", "roadmap"),
+            # - Hide all labels
+            ("style", "feature:all|element:labels|visibility:off"),
+            # - Hide administrative boundaries (e.g. city borders)
+            ("style", "feature:administrative|visibility:off"),
+        ]
+        response = requests.get(self.MAPS_STATIC_API_URL, params=params)
+        if response.status_code != 200:
+            raise RuntimeError(f"Error querying static map API: {response.text}")
+
+        static_map = Image.open(io.BytesIO(response.content))
+
+        # Crop it to the desired radius
+        crop_pixel_size = int(2 * radius / meters_per_pixel(zoom))
+        left = (static_map.width - crop_pixel_size) // 2
+        upper = (static_map.height - crop_pixel_size) // 2
+        right = left + crop_pixel_size
+        lower = upper + crop_pixel_size
+        cropped_map = static_map.crop((left, upper, right, lower))
+
+        return cropped_map
 
 
 if __name__ == "__main__":

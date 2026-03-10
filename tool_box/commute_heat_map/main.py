@@ -1,8 +1,10 @@
 import argparse
+import io
 import os.path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from PIL import Image
 from scipy.interpolate import griddata
 
 from tool_box.commute_heat_map.proj import Proj
@@ -51,7 +53,7 @@ def get_args(args=None):
     return args
 
 
-def save_heat_map(heat_map: np.ndarray, args):
+def render_heat_map(heat_map: np.ndarray, args, debug=False) -> Image.Image:
     # Interpolate NaN values
     x = np.arange(heat_map.shape[1])
     y = np.arange(heat_map.shape[0])
@@ -65,6 +67,7 @@ def save_heat_map(heat_map: np.ndarray, args):
     )
     # Convert to minutes
     heat_map = heat_map // 60
+
     # Visualize the heat map
     plt.imshow(
         heat_map,
@@ -73,17 +76,33 @@ def save_heat_map(heat_map: np.ndarray, args):
         cmap='jet_r',  # gradient from red (short commute) to blue (long commute)
         interpolation='bicubic',  # smooth
     )
-    plt.colorbar(label='Commute Time (min)')
-    plt.title(f'Commute Time Heat Map from {args.origin} in {args.city}')
-    plt.xlabel('Distance East/West (m)')
-    plt.ylabel('Distance North/South (m)')
-    plt.savefig(os.path.join(os.path.dirname(__file__), 'commute_heat_map.png'), dpi=600)
+
+    # Adjust rendering
+    save_kwargs = {}
+    if debug:
+        plt.colorbar(label='Commute Time (min)')
+        plt.title(f'Commute Time Heat Map from {args.origin} in {args.city}')
+        plt.xlabel('Distance East/West (m)')
+        plt.ylabel('Distance North/South (m)')
+    else:
+        # Remove axes
+        plt.axis('off')
+        save_kwargs = {
+            # Remove any whitespace padding around the image
+            "bbox_inches": 'tight',
+            "pad_inches": 0,
+            # Save at a high resolution
+            "dpi": 600,
+        }
+
+    buffer = io.BytesIO()
+    plt.savefig(buffer, **save_kwargs)
     plt.clf()
 
+    return Image.open(buffer)
 
-def build_heat_map(args) -> np.ndarray:
-    gmaps = GoogleMaps.login(args.api_key_path)
 
+def build_heat_map(gmaps, args) -> np.ndarray:
     origin_point = gmaps.get_point(args.origin)
     city_point = gmaps.get_point(args.city)
 
@@ -112,14 +131,29 @@ def build_heat_map(args) -> np.ndarray:
 
 def main():
     args = get_args()
+    gmaps = GoogleMaps.login(args.api_key_path)
+
+    # Get the heat map
     if os.path.exists(args.heat_map_array_path):
         print(f"Loading pre-computed heat map from {args.heat_map_array_path}...")
         heat_map = np.load(args.heat_map_array_path)
     else:
         print(f"Building heat map for {args.city} from {args.origin}...")
-        heat_map = build_heat_map(args)
+        heat_map = build_heat_map(gmaps, args)
         np.save(args.heat_map_array_path, heat_map)
-    save_heat_map(heat_map, args)
+    heat_map_image = render_heat_map(heat_map, args)
+
+    # Get the static map
+    static_map = gmaps.render_static_map(args.city, args.radius)
+    static_map = static_map.resize(heat_map_image.size)
+
+    # Overlay the heat map on the static map
+    final_image = Image.blend(
+        static_map.convert("RGBA"),
+        heat_map_image.convert("RGBA"),
+        alpha=0.65
+    )
+    final_image.save(os.path.join(os.path.dirname(__file__), 'commute_heat_map_final.png'))
 
 
 if __name__ == "__main__":
@@ -146,4 +180,5 @@ if __name__ == "__main__":
         j = np.random.randint(0, n_points)
         heat_map[j, i] = np.nan
 
-    save_heat_map(heat_map, args)
+    heat_map_image = render_heat_map(heat_map, args, debug=True)
+    heat_map_image.show()
