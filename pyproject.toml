@@ -41,12 +41,14 @@ commute-heat-map = [
     "matplotlib",
     "numpy",
     "pyproj",
+    "scipy",
 ]
 all = ["tool_box[yt-dl,concert-planner,commute-heat-map]"]
 
 [project.scripts]
 yt-dl = "tool_box.youtube_download.main:main"
 concert-planner = "tool_box.concert_planner.main:main"
+commute-heat-map = "tool_box.commute_heat_map.main:main"
 
 [project.urls]
 homepage = "https://github.com/ColasGael/tool_box"
