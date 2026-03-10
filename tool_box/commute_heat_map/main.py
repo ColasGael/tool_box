@@ -41,6 +41,12 @@ def get_args(args=None):
         default=os.path.join(os.path.dirname(__file__), "api_key.txt"),
         help="Path to the API key file"
     )
+    parser.add_argument(
+        "--heat-map-array-path",
+        type=str,
+        default=os.path.join(os.path.dirname(__file__), "commute_heat_map.npy"),
+        help="Path to save the heat map array (in .npy format)"
+    )
     args = parser.parse_args(args)
     return args
 
@@ -75,9 +81,7 @@ def save_heat_map(heat_map: np.ndarray, args):
     plt.clf()
 
 
-def main():
-    args = get_args()
-
+def build_heat_map(args) -> np.ndarray:
     gmaps = GoogleMaps.login(args.api_key_path)
 
     origin_point = gmaps.get_point(args.origin)
@@ -103,6 +107,18 @@ def main():
                 travel_time = np.nan
             heat_map[j, i] = travel_time
 
+    return heat_map
+
+
+def main():
+    args = get_args()
+    if os.path.exists(args.heat_map_array_path):
+        print(f"Loading pre-computed heat map from {args.heat_map_array_path}...")
+        heat_map = np.load(args.heat_map_array_path)
+    else:
+        print(f"Building heat map for {args.city} from {args.origin}...")
+        heat_map = build_heat_map(args)
+        np.save(args.heat_map_array_path, heat_map)
     save_heat_map(heat_map, args)
 
 
