@@ -8,6 +8,21 @@ class Point(object):
         self.latitude = latitude
         self.longitude = longitude
 
+    def __add__(self, other: "Point") -> "Point":
+        return Point(self.latitude + other.latitude, self.longitude + other.longitude)
+
+    def __sub__(self, other: "Point") -> "Point":
+        return Point(self.latitude - other.latitude, self.longitude - other.longitude)
+
+    def __mul__(self, scalar: float) -> "Point":
+        return Point(self.latitude * scalar, self.longitude * scalar)
+
+    def __rmul__(self, scalar: float) -> "Point":
+        return self * scalar
+
+    def __truediv__(self, scalar: float) -> "Point":
+        return 1 / scalar * self
+
     def __repr__(self):
         return f"Point(latitude={self.latitude}, longitude={self.longitude})"
 

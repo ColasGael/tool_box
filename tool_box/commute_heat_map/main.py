@@ -21,12 +21,6 @@ def get_args(args=None):
         help="Origin address for the commute time calculation"
     )
     parser.add_argument(
-        "--radius",
-        type=float,
-        default=5000,
-        help="Radius (in m) around the city center to consider for the heat map"
-    )
-    parser.add_argument(
         "--grid-size",
         type=float,
         default=100,
@@ -66,8 +60,8 @@ def render_heat_map(heat_map: np.ndarray, args, debug=False) -> Image.Image:
     # Visualize the heat map
     plt.imshow(
         heat_map,
-        extent=(-args.radius, args.radius, -args.radius, args.radius),
         origin='lower',
+        extent=(args.sw_point_x, args.ne_point_x, args.sw_point_y, args.ne_point_y),
         cmap='jet_r',  # gradient from red (short commute) to blue (long commute)
         interpolation='bicubic',  # smooth
     )
@@ -97,15 +91,12 @@ def render_heat_map(heat_map: np.ndarray, args, debug=False) -> Image.Image:
     return Image.open(buffer)
 
 
-def build_heat_map(gmaps, args) -> np.ndarray:
+def build_heat_map(gmaps, proj, args) -> np.ndarray:
     origin_point = gmaps.get_point(args.origin)
-    city_point = gmaps.get_point(args.city)
 
-    proj = Proj(city_point)
-
-    # Build a grid of points around the city center
-    grid_x = np.arange(-args.radius, args.radius + args.grid_size, args.grid_size)
-    grid_y = np.arange(-args.radius, args.radius + args.grid_size, args.grid_size)
+    # Build a grid of points covering the city bounds
+    grid_x = np.arange(args.sw_point_x, args.ne_point_x + args.grid_size, args.grid_size)
+    grid_y = np.arange(args.sw_point_y, args.ne_point_y + args.grid_size, args.grid_size)
 
     # Compute commute times for each point in the grid
     heat_map = np.full((len(grid_y), len(grid_x)), -1, dtype=int)
@@ -131,18 +122,33 @@ def main():
     # Infer the city name from the origin address
     args.city = gmaps.get_city_name(args.origin)
 
+    # Initialize the projection centered on the city
+    city_point = gmaps.get_point(args.city)
+    proj = Proj(city_point)
+
+    # Get the city bounds to determine the area to cover with the heat map
+    sw_point, ne_point = gmaps.get_bounds(args.city)
+
+    args.sw_point_x, args.sw_point_y = proj.to_xy(sw_point)
+    args.ne_point_x, args.ne_point_y = proj.to_xy(ne_point)
+
     # Get the heat map
     if os.path.exists(args.heat_map_array_path):
         print(f"Loading pre-computed heat map from {args.heat_map_array_path}...")
         heat_map = np.load(args.heat_map_array_path)
     else:
         print(f"Building heat map for {args.city} from {args.origin}...")
-        heat_map = build_heat_map(gmaps, args)
+        heat_map = build_heat_map(gmaps, proj, args)
         np.save(args.heat_map_array_path, heat_map)
     heat_map_image = render_heat_map(heat_map, args)
 
+    # Convert the city bounds to a center point and an area size (dx, dy)
+    center_point = (sw_point + ne_point) / 2
+    dx = args.ne_point_x - args.sw_point_x
+    dy = args.ne_point_y - args.sw_point_y
+
     # Get the static map
-    static_map = gmaps.render_static_map(args.city, args.radius)
+    static_map = gmaps.render_static_map(center_point, dx, dy)
     static_map = static_map.resize(heat_map_image.size)
 
     # Overlay the heat map on the static map
@@ -160,22 +166,26 @@ if __name__ == "__main__":
         "Gare de Lyon, Paris, France",
     ])
     args.city = "Paris"
+    args.sw_point_x, args.sw_point_y = 0, 0
+    args.ne_point_x, args.ne_point_y = 10000, 10000
 
     # Build a synthetic heat map
-    n_points = args.radius * 2 // args.grid_size + 1
+    heat_map = np.zeros((
+        args.ne_point_y // args.grid_size + 1,
+        args.ne_point_x // args.grid_size + 1
+    ))
     # - radiating from an off-center point
-    heat_map = np.zeros((n_points, n_points))
     center_x, center_y = 20, 20
-    for j in range(n_points):
-        for i in range(n_points):
+    for j in range(heat_map.shape[0]):
+        for i in range(heat_map.shape[1]):
             distance = np.sqrt((i - center_x) ** 2 + (j - center_y) ** 2)
             heat_map[j, i] = distance * 10  # Commute time increases with distance
     # - with some noise
-    heat_map += np.random.rand(n_points, n_points) * 500
+    heat_map += np.random.rand(*heat_map.shape) * 500
     # - add some random NaN values to simulate unreachable areas
     for _ in range(100):
-        i = np.random.randint(0, n_points)
-        j = np.random.randint(0, n_points)
+        i = np.random.randint(0, heat_map.shape[1])
+        j = np.random.randint(0, heat_map.shape[0])
         heat_map[j, i] = np.nan
 
     heat_map_image = render_heat_map(heat_map, args, debug=True)

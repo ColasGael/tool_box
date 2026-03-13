@@ -78,6 +78,23 @@ class GoogleMaps(object):
         point = Point(latitude=location["lat"], longitude=location["lng"])
         return point
 
+    def get_bounds(self, address: str) -> tuple[Point, Point]:
+        """Get the bounding box of an address.
+
+        Args:
+            address (str): The address to geocode.
+
+        Returns:
+            tuple(Point, Point): The southwest and northeast corners of the bounding box.
+        """
+        result = self._geocode(address)
+        bounds = result["geometry"]["bounds"]
+        southwest = bounds["southwest"]
+        northeast = bounds["northeast"]
+        sw_point = Point(latitude=southwest["lat"], longitude=southwest["lng"])
+        ne_point = Point(latitude=northeast["lat"], longitude=northeast["lng"])
+        return sw_point, ne_point
+
     def get_travel_time(self, origin: Point | str, destination: Point | str, travel_mode: str) -> int:
         """Compute travel time between two locations using the specified travel mode.
 
@@ -122,12 +139,13 @@ class GoogleMaps(object):
     def get_commute_time(self, origin: Point | str, destination: Point | str) -> int:
         return self.get_travel_time(origin, destination, travel_mode="TRANSIT")
 
-    def render_static_map(self, center: str, radius: int) -> Image.Image:
+    def render_static_map(self, center: Point | str, dx: int, dy: int)-> Image.Image:
         """Build a static map centered on the specified location and covering the specified radius.
 
         Args:
             center: The center of the map (address or "lat,lng").
-            radius: The radius (in m) around the center to cover.
+            dx: The width of the area to cover (in meters).
+            dy: The height of the area to cover (in meters).
 
         Returns:
             Image.Image: The cropped static map image covering the specified area.
@@ -135,15 +153,16 @@ class GoogleMaps(object):
         Documentation:
         - Styles: https://developers.google.com/maps/documentation/maps-static/styling
         """
-        center_point = self.get_point(center)
+        if isinstance(center, str):
+            center = self.get_point(center)
 
         def meters_per_pixel(zoom: int) -> float:
-            return 156543.03392 * math.cos(center_point.latitude * math.pi / 180) / (2 ** zoom)
+            return 156543.03392 * math.cos(center.latitude * math.pi / 180) / (2 ** zoom)
 
         # Find the zoom level that covers slightly more than the area of interest
-        image_length = 2 * radius + 1 # m
+        image_length = max(dx, dy) + 1 # m
         zoom = 0
-        while image_length > 2 * radius:
+        while image_length > max(dx, dy):
             zoom += 1
             image_length = meters_per_pixel(zoom) * self.STATIC_MAP_PIXEL_SIZE
         # Decrease the zoom to ensure we cover the whole area of interest
@@ -153,7 +172,7 @@ class GoogleMaps(object):
         params = [
             ("key", self.api_key),
             ("format", "png"),
-            ("center", center),
+            ("center", f"{center.latitude},{center.longitude}"),
             ("zoom", zoom),
             ("size", f"{self.STATIC_MAP_PIXEL_SIZE}x{self.STATIC_MAP_PIXEL_SIZE}"),
             ("maptype", "roadmap"),
@@ -168,12 +187,13 @@ class GoogleMaps(object):
 
         static_map = Image.open(io.BytesIO(response.content))
 
-        # Crop it to the desired radius
-        crop_pixel_size = int(2 * radius / meters_per_pixel(zoom))
-        left = (static_map.width - crop_pixel_size) // 2
-        upper = (static_map.height - crop_pixel_size) // 2
-        right = left + crop_pixel_size
-        lower = upper + crop_pixel_size
+        # Crop it to the desired area
+        crop_pixel_size_x = int(dx / meters_per_pixel(zoom))
+        crop_pixel_size_y = int(dy / meters_per_pixel(zoom))
+        left = (static_map.width - crop_pixel_size_x) // 2
+        upper = (static_map.height - crop_pixel_size_y) // 2
+        right = left + crop_pixel_size_x
+        lower = upper + crop_pixel_size_y
         cropped_map = static_map.crop((left, upper, right, lower))
 
         return cropped_map
