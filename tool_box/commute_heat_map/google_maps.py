@@ -33,15 +33,7 @@ class GoogleMaps(object):
             api_key = f.read().strip()
         return cls(api_key)
 
-    def get_point(self, address: str) -> Point:
-        """Geocode an address into a geographical point.
-
-        Args:
-            address (str): The address to geocode.
-
-        Returns:
-            Point: The geographical point corresponding to the address.
-        """
+    def _geocode(self, address: str) -> dict:
         params = {
             "address": address,
             "key": self.api_key,
@@ -53,7 +45,36 @@ class GoogleMaps(object):
             raise RuntimeError(
                 f"Error geocoding address '{address}', with status : {data['status']}")
 
-        location = data["results"][0]["geometry"]["location"]
+        return data["results"][0]
+
+    def get_city_name(self, address: str) -> str:
+        """Infer the city name from an address using the geocoding API.
+
+        Args:
+            address (str): The address to infer the city name from.
+
+        Returns:
+            str: The inferred city name.
+        """
+        result = self._geocode(address)
+
+        for component in result["address_components"]:
+            if "locality" in component["types"]:
+                return component["long_name"]
+
+        raise RuntimeError(f"Could not infer city name from address '{address}'")
+
+    def get_point(self, address: str) -> Point:
+        """Geocode an address into a geographical point.
+
+        Args:
+            address (str): The address to geocode.
+
+        Returns:
+            Point: The geographical point corresponding to the address.
+        """
+        result = self._geocode(address)
+        location = result["geometry"]["location"]
         point = Point(latitude=location["lat"], longitude=location["lng"])
         return point
 
@@ -170,3 +191,6 @@ if __name__ == "__main__":
     destination = "Gare Montparnasse, Paris, France"
     commute_time_address = maps.get_commute_time(origin, destination)
     print(f"Commute time from '{origin}' to '{destination}' is {commute_time_address} seconds.")
+
+    city = maps.get_city_name(origin)
+    print(f"The city name inferred from '{origin}' is '{city}'.")

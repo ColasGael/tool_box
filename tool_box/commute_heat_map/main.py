@@ -21,11 +21,6 @@ def get_args(args=None):
         help="Origin address for the commute time calculation"
     )
     parser.add_argument(
-        "city",
-        type=str,
-        help="City to build the heat map for"
-    )
-    parser.add_argument(
         "--radius",
         type=float,
         default=5000,
@@ -133,6 +128,9 @@ def main():
     args = get_args()
     gmaps = GoogleMaps.login(args.api_key_path)
 
+    # Infer the city name from the origin address
+    args.city = gmaps.get_city_name(args.origin)
+
     # Get the heat map
     if os.path.exists(args.heat_map_array_path):
         print(f"Loading pre-computed heat map from {args.heat_map_array_path}...")
@@ -160,8 +158,8 @@ if __name__ == "__main__":
     # Test the heat map visualization
     args = get_args([
         "Gare de Lyon, Paris, France",
-        "Paris, France",
     ])
+    args.city = "Paris"
 
     # Build a synthetic heat map
     n_points = args.radius * 2 // args.grid_size + 1
