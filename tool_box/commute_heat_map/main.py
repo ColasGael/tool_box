@@ -38,6 +38,11 @@ def get_args(args=None):
         default=os.path.join(os.path.dirname(__file__), "commute_heat_map.npy"),
         help="Path to save the heat map array (in .npy format)"
     )
+    parser.add_argument(
+        "--debug",
+        action='store_true',
+        help="Whether to show and save the intermediate images"
+    )
     args = parser.parse_args(args)
     return args
 
@@ -140,7 +145,11 @@ def main():
         print(f"Building heat map for {args.city} from {args.origin}...")
         heat_map = build_heat_map(gmaps, proj, args)
         np.save(args.heat_map_array_path, heat_map)
-    heat_map_image = render_heat_map(heat_map, args)
+    heat_map_image = render_heat_map(heat_map, args, debug=args.debug)
+
+    if args.debug:
+        heat_map_image.save(os.path.join(os.path.dirname(__file__), 'commute_heat_map_debug.png'))
+        heat_map_image.show()
 
     # Convert the city bounds to a center point and an area size (dx, dy)
     center_point = (sw_point + ne_point) / 2
@@ -149,15 +158,21 @@ def main():
 
     # Get the static map
     static_map = gmaps.render_static_map(center_point, dx, dy)
+
+    if args.debug:
+        static_map.save(os.path.join(os.path.dirname(__file__), 'static_map_debug.png'))
+        static_map.show()
+
     static_map = static_map.resize(heat_map_image.size)
 
     # Overlay the heat map on the static map
-    final_image = Image.blend(
-        static_map.convert("RGBA"),
-        heat_map_image.convert("RGBA"),
-        alpha=0.65
-    )
-    final_image.save(os.path.join(os.path.dirname(__file__), 'commute_heat_map_final.png'))
+    if not args.debug:
+        final_image = Image.blend(
+            static_map.convert("RGBA"),
+            heat_map_image.convert("RGBA"),
+            alpha=0.65
+        )
+        final_image.save(os.path.join(os.path.dirname(__file__), 'commute_heat_map_final.png'))
 
 
 if __name__ == "__main__":
