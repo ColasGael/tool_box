@@ -44,12 +44,18 @@ commute-heat-map = [
     "pyproj",
     "scipy",
 ]
-all = ["tool_box[yt-dl,concert-planner,commute-heat-map]"]
+paint-by-numbers = [
+    "numpy",
+    "Pillow",
+    "scipy",
+]
+all = ["tool_box[yt-dl,concert-planner,commute-heat-map,paint-by-numbers]"]
 
 [project.scripts]
 yt-dl = "tool_box.youtube_download.main:main"
 concert-planner = "tool_box.concert_planner.main:main"
 commute-heat-map = "tool_box.commute_heat_map.main:main"
+paint-by-numbers = "tool_box.paint_by_numbers.main:main"
 
 [project.urls]
 homepage = "https://github.com/ColasGael/tool_box"
