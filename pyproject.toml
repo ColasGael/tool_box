@@ -47,6 +47,7 @@ commute-heat-map = [
 paint-by-numbers = [
     "numpy",
     "Pillow",
+    "scikit-image",
     "scipy",
 ]
 all = ["tool_box[yt-dl,concert-planner,commute-heat-map,paint-by-numbers]"]

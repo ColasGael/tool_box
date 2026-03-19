@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 from scipy.cluster.vq import kmeans2
 from scipy.ndimage import (label, find_objects, gaussian_filter, center_of_mass,
                            distance_transform_edt)
+from skimage.color import rgb2lab, lab2rgb
 
 
 def get_args(args=None):
@@ -88,22 +89,27 @@ def get_args(args=None):
 
 
 def quantize_colors(image, n_colors):
-    """Quantize image colors using k-means clustering.
+    """Quantize image colors using k-means clustering in CIELAB space.
+
+    Clustering in LAB produces perceptually balanced palette entries.
+    Centroids are converted back to uint8 RGB for the returned palette.
 
     Returns:
         labels: (H, W) int array mapping each pixel to a color index
         palette: (n_colors, 3) uint8 array of cluster center colors
     """
     H, W = image.shape[:2]
-    pixels = image.reshape(-1, 3).astype(np.float64)
+    pixels = image.reshape(-1, 3)
 
     # Clamp n_colors to the number of unique colors in the image
     unique_colors = len(np.unique(pixels, axis=0))
     n_colors = min(n_colors, unique_colors)
 
-    centroids, labels = kmeans2(pixels, n_colors, minit="++", iter=20, rng=42)
+    pixels_lab = rgb2lab(pixels.reshape(1, -1, 3)).reshape(-1, 3)
+    centroids_lab, labels = kmeans2(pixels_lab, n_colors, minit="++", iter=20, rng=42)
 
-    return labels.reshape(H, W), centroids.astype(np.uint8)
+    palette = (lab2rgb(centroids_lab.reshape(1, -1, 3)).reshape(-1, 3) * 255).round().astype(np.uint8)
+    return labels.reshape(H, W), palette
 
 
 def merge_small_regions(labels, min_region_size):

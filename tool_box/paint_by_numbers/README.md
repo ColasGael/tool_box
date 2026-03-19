@@ -35,7 +35,7 @@ pip install -e ".[paint-by-numbers]"
 
 1. **Load & resize** -- image is downscaled so its longest side <= `--max-size`
 2. **Enhance** -- contrast and saturation adjusted via `PIL.ImageEnhance`
-3. **Quantize** -- k-means++ (`scipy.cluster.vq.kmeans2`) reduces to `--n-colors` flat colors
+3. **Quantize** -- pixels are converted to CIELAB (`skimage.color.rgb2lab`), k-means++ (`scipy.cluster.vq.kmeans2`) clusters to `--n-colors` colors, centroids are converted back to RGB
 4. **Merge small regions** -- connected components below `--min-region-size` x image area are absorbed by their most-contacted neighbor
 5. **Smooth boundaries** -- per-color probability maps are Gaussian-blurred; argmax gives smooth region edges
 6. **Merge small regions** (second pass) -- cleans up tiny regions reintroduced by smoothing
