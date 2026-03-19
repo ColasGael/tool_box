@@ -2,3 +2,10 @@
 **/*.jpeg
 **/*.png
 claude_creative_process.md
+
+# Example images referenced in README
+!snickers.png
+!debug_quantized_snickers.png
+!debug_edges_snickers.png
+!legend_snickers.png
+!paint_by_numbers_snickers.png

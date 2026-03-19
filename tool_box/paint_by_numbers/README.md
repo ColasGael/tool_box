@@ -25,6 +25,28 @@ paint-by-numbers <input_image> [options]
 | `--font-size` | 0.01 | Font size for region labels as a fraction of the output height |
 | `--debug` | off | Save intermediate images (`debug_quantized.png`, `debug_edges.png`) |
 
+## Example
+
+```bash
+paint-by-numbers images/snickers.png --debug
+```
+
+**Input**
+
+![snickers](images/snickers.png)
+
+**Intermediate outputs** (`--debug`)
+
+| Quantized colors | Region edges |
+|:---:|:---:|
+| ![](images/debug_quantized_snickers.png) | ![](images/debug_edges_snickers.png) |
+
+**Final outputs**
+
+| Legend | Paint-by-numbers |
+|:---:|:---:|
+| ![](images/legend_snickers.png) | ![](images/paint_by_numbersUpd_snickers.png) |
+
 ## Install
 
 ```bash
