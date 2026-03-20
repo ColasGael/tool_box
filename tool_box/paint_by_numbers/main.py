@@ -338,7 +338,7 @@ def render_paint_by_number(image_shape, edge_mask, regions, comp_map, font_size)
     """
     H, W = image_shape[:2]
     canvas_arr = np.full((H, W, 3), 255, dtype=np.uint8)
-    canvas_arr[edge_mask] = [0, 0, 0]
+    canvas_arr[edge_mask] = [180, 180, 180]
     canvas = Image.fromarray(canvas_arr)
     draw = ImageDraw.Draw(canvas)
     font = ImageFont.load_default(size=font_size)
@@ -352,7 +352,7 @@ def render_paint_by_number(image_shape, edge_mask, regions, comp_map, font_size)
         row, col = _find_label_position(
             comp_map, region["comp_id"], centroid_row, centroid_col, tw, th
         )
-        draw.text((col, row), text, fill=(0, 0, 0), font=font, anchor="mm")
+        draw.text((col, row), text, fill=(80, 80, 80), font=font, anchor="mm")
 
     return canvas
 
