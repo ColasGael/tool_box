@@ -104,7 +104,7 @@ def build_heat_map(gmaps, proj, args) -> np.ndarray:
     grid_y = np.arange(args.sw_point_y, args.ne_point_y + args.grid_size, args.grid_size)
 
     # Compute commute times for each point in the grid
-    heat_map = np.full((len(grid_y), len(grid_x)), -1, dtype=int)
+    heat_map = np.full((len(grid_y), len(grid_x)), -1, dtype=float)
     for j, y in enumerate(grid_y):
         for i, x in enumerate(grid_x):
             grid_point = proj.to_latlon(x, y)
@@ -113,8 +113,9 @@ def build_heat_map(gmaps, proj, args) -> np.ndarray:
                     origin=origin_point,
                     destination=grid_point,
                 )
-            except RuntimeError:
+            except Exception as e:
                 travel_time = np.nan
+                print(f"WARNING: Could not compute commute time from {origin_point} to {grid_point}, due to: {e}")
             heat_map[j, i] = travel_time
 
     return heat_map
@@ -133,6 +134,16 @@ def main():
 
     # Get the city bounds to determine the area to cover with the heat map
     sw_point, ne_point = gmaps.get_bounds(args.city)
+
+    print(f"City '{args.city}' bounds: SW {sw_point}, NE {ne_point}")
+    # sw_point.latitude = 48.815
+    sw_point.latitude = 48.8155
+    # sw_point.longitude = 2.25
+    sw_point.longitude = 2.255
+    # ne_point.latitude = 48.905
+    ne_point.latitude = 48.9025
+    # ne_point.longitude = 2.42
+    ne_point.longitude = 2.417
 
     args.sw_point_x, args.sw_point_y = proj.to_xy(sw_point)
     args.ne_point_x, args.ne_point_y = proj.to_xy(ne_point)
