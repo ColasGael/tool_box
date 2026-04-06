@@ -1,4 +1,5 @@
 api_key.txt
-commute_heat_map*.np*
-commute_heat_map*.png
-static_map*.png
+**/commute_heat_map*.np*
+**/commute_heat_map*.png
+**/static_map*.png
+**/debug.txt
