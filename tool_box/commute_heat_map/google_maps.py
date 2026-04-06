@@ -119,6 +119,8 @@ class GoogleMaps(object):
             "origin": {"location": {"latLng": vars(origin)}},
             "destination": {"location": {"latLng": vars(destination)}},
             "travelMode": travel_mode,
+            # Check alternative routes to be able to pick the fastest one
+            "computeAlternativeRoutes": True,
         }
         response = requests.post(self.ROUTES_API_URL, headers=headers, json=body)
 
@@ -128,13 +130,21 @@ class GoogleMaps(object):
                 f"Error computing {travel_mode} route between {origin} and {destination}: \n"
                 f"{data.get('error', 'UNKNOWN ERROR')}")
 
-        route = data["routes"][0]
-        duration_value = route[self.DURATION_FIELD]
-        if not duration_value.endswith("s"):
-            raise RuntimeError(f"Unexpected duration format: {duration_value}")
+        # Pick the fastest route among the alternatives
+        best_duration = None
+        for route in data["routes"]:
+            duration_value = route[self.DURATION_FIELD]
+            if not duration_value.endswith("s"):
+                print(f"WARNING: Unexpected duration format: {duration_value}")
+            duration = int(duration_value[:-1])
 
-        duration = int(duration_value[:-1])
-        return duration
+            if best_duration is None or duration < best_duration:
+                best_duration = duration
+
+        if best_duration is None:
+            raise RuntimeError(f"No valid routes found between {origin} and {destination}")
+
+        return best_duration
 
     def get_commute_time(self, origin: Point | str, destination: Point | str) -> int:
         return self.get_travel_time(origin, destination, travel_mode="TRANSIT")
