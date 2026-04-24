@@ -17,10 +17,17 @@ COOKIES = {
 }
 
 
+_CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), "credentials.txt")
+
+
+def _load_credentials() -> tuple[str, str]:
+    with open(_CREDENTIALS_FILE) as f:
+        username, password = f.read().splitlines()
+    return username, password
+
+
 def get_hint(hint, day, year=2024):
-    # Specify the username and password
-    username = 'gael.colas@free.fr'
-    password = 'JUEU41GH'
+    username, password = _load_credentials()
 
     session = requests.Session()
 
