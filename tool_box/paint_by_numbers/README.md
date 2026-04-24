@@ -4,6 +4,14 @@ Converts a color image into a paint-by-numbers template: flat color regions with
 
 ## Usage
 
+### Install
+
+```bash
+pip install -e ".[paint-by-numbers]"
+```
+
+### Command
+
 ```bash
 paint-by-numbers <input_image> [options]
 ```
@@ -25,33 +33,35 @@ paint-by-numbers <input_image> [options]
 | `--font-size` | 0.01 | Font size for region labels as a fraction of the output height |
 | `--debug` | off | Save intermediate images (`debug_quantized.png`, `debug_edges.png`) |
 
+
 ## Example
+
+### Goal
+
+Create a paint-by-numbers template of Snickers the cat.
+
+### Command
 
 ```bash
 paint-by-numbers images/snickers.png --debug
 ```
 
-**Input**
+### Input
 
 ![snickers](images/snickers.png)
 
-**Intermediate outputs** (`--debug`)
+### Debug outputs (`--debug`)
 
 | Quantized colors | Region edges |
 |:---:|:---:|
 | ![](images/debug_quantized_snickers.png) | ![](images/debug_edges_snickers.png) |
 
-**Final outputs**
+### Final outputs
 
 | Legend | Paint-by-numbers |
 |:---:|:---:|
-| ![](images/legend_snickers.png) | ![](images/paint_by_numbersUpd_snickers.png) |
+| ![](images/legend_snickers.png) | ![](images/paint_by_numbers_snickers.png) |
 
-## Install
-
-```bash
-pip install -e ".[paint-by-numbers]"
-```
 
 ## Pipeline
 
@@ -66,6 +76,7 @@ pip install -e ".[paint-by-numbers]"
 9. **Re-smooth & detect edges** -- a second smooth pass at output resolution anti-aliases the upscaled staircase; 1px edges detected via neighbour comparison
 10. **Render paint-by-numbers** -- white canvas, black 1px edges, each number placed at the nearest valid position to the centroid where the full text fits (via `distance_transform_edt`)
 11. **Render legend** -- color swatches with region numbers, per-color region count, and total region count
+
 
 ## Note
 
