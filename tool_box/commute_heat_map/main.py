@@ -134,17 +134,6 @@ def main():
 
     # Get the city bounds to determine the area to cover with the heat map
     sw_point, ne_point = gmaps.get_bounds(args.city)
-
-    print(f"City '{args.city}' bounds: SW {sw_point}, NE {ne_point}")
-    # sw_point.latitude = 48.815
-    sw_point.latitude = 48.8155
-    # sw_point.longitude = 2.25
-    sw_point.longitude = 2.255
-    # ne_point.latitude = 48.905
-    ne_point.latitude = 48.9025
-    # ne_point.longitude = 2.42
-    ne_point.longitude = 2.417
-
     args.sw_point_x, args.sw_point_y = proj.to_xy(sw_point)
     args.ne_point_x, args.ne_point_y = proj.to_xy(ne_point)
 
