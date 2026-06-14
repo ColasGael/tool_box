@@ -47,7 +47,32 @@ def get_args(args=None):
     return args
 
 
-def render_heatmap(heatmap: np.ndarray, args, debug=False) -> Image.Image:
+def build_heatmap(gmaps, proj, args) -> np.ndarray:
+    origin_point = gmaps.get_point(args.origin)
+
+    # Build a grid of points covering the city bounds
+    grid_x = np.arange(args.sw_point_x, args.ne_point_x + args.grid_size, args.grid_size)
+    grid_y = np.arange(args.sw_point_y, args.ne_point_y + args.grid_size, args.grid_size)
+
+    # Compute commute times for each point in the grid
+    heatmap = np.full((len(grid_y), len(grid_x)), -1, dtype=float)
+    for j, y in enumerate(grid_y):
+        for i, x in enumerate(grid_x):
+            grid_point = proj.to_latlon(x, y)
+            try:
+                travel_time = gmaps.get_commute_time(
+                    origin=origin_point,
+                    destination=grid_point,
+                )
+            except Exception as e:
+                travel_time = np.nan
+                print(f"WARNING: Could not compute commute time from {origin_point} to {grid_point}, due to: {e}")
+            heatmap[j, i] = travel_time
+
+    return heatmap
+
+
+def postprocess_heatmap(heatmap: np.ndarray) -> np.ndarray:
     # Interpolate NaN values
     x = np.arange(heatmap.shape[1])
     y = np.arange(heatmap.shape[0])
@@ -61,7 +86,10 @@ def render_heatmap(heatmap: np.ndarray, args, debug=False) -> Image.Image:
     )
     # Convert to minutes
     heatmap = heatmap // 60
+    return heatmap
 
+
+def render_heatmap(heatmap: np.ndarray, args, debug=False) -> Image.Image:
     # Visualize the heat map
     plt.imshow(
         heatmap,
@@ -96,31 +124,6 @@ def render_heatmap(heatmap: np.ndarray, args, debug=False) -> Image.Image:
     return Image.open(buffer)
 
 
-def build_heatmap(gmaps, proj, args) -> np.ndarray:
-    origin_point = gmaps.get_point(args.origin)
-
-    # Build a grid of points covering the city bounds
-    grid_x = np.arange(args.sw_point_x, args.ne_point_x + args.grid_size, args.grid_size)
-    grid_y = np.arange(args.sw_point_y, args.ne_point_y + args.grid_size, args.grid_size)
-
-    # Compute commute times for each point in the grid
-    heatmap = np.full((len(grid_y), len(grid_x)), -1, dtype=float)
-    for j, y in enumerate(grid_y):
-        for i, x in enumerate(grid_x):
-            grid_point = proj.to_latlon(x, y)
-            try:
-                travel_time = gmaps.get_commute_time(
-                    origin=origin_point,
-                    destination=grid_point,
-                )
-            except Exception as e:
-                travel_time = np.nan
-                print(f"WARNING: Could not compute commute time from {origin_point} to {grid_point}, due to: {e}")
-            heatmap[j, i] = travel_time
-
-    return heatmap
-
-
 def main():
     args = get_args()
     gmaps = GoogleMaps.login(args.api_key_path)
@@ -145,6 +148,8 @@ def main():
         print(f"Building heat map for {args.city} from {args.origin}...")
         heatmap = build_heatmap(gmaps, proj, args)
         np.save(args.heatmap_array_path, heatmap)
+    heatmap = postprocess_heatmap(heatmap)
+
     heatmap_image = render_heatmap(heatmap, args, debug=args.debug)
 
     if args.debug:
