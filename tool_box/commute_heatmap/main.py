@@ -124,6 +124,15 @@ def render_heatmap(heatmap: np.ndarray, args, debug=False) -> Image.Image:
     return Image.open(buffer)
 
 
+def make_final_image(heatmap_image: Image.Image, static_map: Image.Image) -> Image.Image:
+    final_image = Image.blend(
+        static_map.convert("RGBA"),
+        heatmap_image.convert("RGBA"),
+        alpha=0.65
+    )
+    return final_image
+
+
 def main():
     args = get_args()
     gmaps = GoogleMaps.login(args.api_key_path)
@@ -172,11 +181,7 @@ def main():
 
     # Overlay the heat map on the static map
     if not args.debug:
-        final_image = Image.blend(
-            static_map.convert("RGBA"),
-            heatmap_image.convert("RGBA"),
-            alpha=0.65
-        )
+        final_image = make_final_image(heatmap_image, static_map)
         final_image.save(os.path.join(os.path.dirname(__file__), 'commute_heatmap_final.png'))
 
 
