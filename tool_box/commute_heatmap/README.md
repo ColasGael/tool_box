@@ -1,4 +1,4 @@
-# commute_heat_map
+# commute_heatmap
 
 Overlays a public-transit commute-time heat map on top of a Google Maps road map for a given origin address.
 
@@ -9,13 +9,13 @@ Red → short commute. Blue → long commute.
 ### Install
 
 ```bash
-pip install -e ".[commute-heat-map]"
+pip install -e ".[commute-heatmap]"
 ```
 
 ### Command
 
 ```bash
-commute-heat-map <origin> [options]
+commute-heatmap <origin> [options]
 ```
 
 ### Arguments
@@ -25,8 +25,8 @@ commute-heat-map <origin> [options]
 | `origin` | — | Origin address for the commute-time calculation |
 | `--grid-size` | `100` | Sampling resolution of the grid (in m) |
 | `--api-key-path` | `api_key.txt` next to script | Path to the Google API key file |
-| `--heat-map-array-path` | `commute_heat_map.npy` next to script | Path to cache / reload the raw commute-time array |
-| `--debug` | off | Save intermediate images (`commute_heat_map_debug.png`, `static_map_debug.png`) and show axes |
+| `--heatmap-array-path` | `commute_heatmap.npy` next to script | Path to cache / reload the raw commute-time array |
+| `--debug` | off | Save intermediate images (`commute_heatmap_debug.png`, `static_map_debug.png`) and show axes |
 
 
 ## Example
@@ -38,12 +38,12 @@ Create a commute heatmap from the Parc de Belleville (in the North-East) to anyw
 ### Command
 
 ```bash
-commute-heat-map "Parc de Belleville, Paris, France"
+commute-heatmap "Parc de Belleville, Paris, France"
 ```
 
-### Output (`commute_heat_map_final.png`)
+### Output (`commute_heatmap_final.png`)
 
-![Commute heat map from Parc de Belleville, Paris](images/commute_heat_map_paris.png)
+![Commute heat map from Parc de Belleville, Paris](images/commute_heatmap_paris.png)
 
 
 ## Pipeline
@@ -55,9 +55,9 @@ commute-heat-map "Parc de Belleville, Paris, France"
 5. **Interpolate** — cubic interpolation (`scipy.interpolate.griddata`) fills any `NaN` gaps
 6. **Render heat map** — the grid is plotted as a `jet_r` colormap (red = short, blue = long) and exported as a high-resolution PNG via `matplotlib`
 7. **Static map** — a road map is fetched from the Maps Static API, styled to highlight transit lines, then cropped to match the grid area
-8. **Overlay** — the heat map is alpha-blended over the road map → `commute_heat_map_final.png`
+8. **Overlay** — the heat map is alpha-blended over the road map → `commute_heatmap_final.png`
 
-The raw commute-time array is saved to `--heat-map-array-path` after the first run; subsequent runs skip the API queries and load it directly.
+The raw commute-time array is saved to `--heatmap-array-path` after the first run; subsequent runs skip the API queries and load it directly.
 
 
 ## Configuration

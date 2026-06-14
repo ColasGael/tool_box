@@ -1,8 +1,0 @@
-api_key.txt
-**/commute_heat_map*.np*
-**/commute_heat_map*.png
-**/static_map*.png
-**/debug.txt
-
-# Example images referenced in README
-!images/commute_heat_map*.png

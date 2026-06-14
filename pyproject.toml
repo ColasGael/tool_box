@@ -37,7 +37,7 @@ concert-planner = [
     # See: https://github.com/googleapis/google-api-python-client
     "google-api-python-client",
 ]
-commute-heat-map = [
+commute-heatmap = [
     "matplotlib",
     "numpy",
     "Pillow",
@@ -50,12 +50,12 @@ paint-by-numbers = [
     "scikit-image",
     "scipy",
 ]
-all = ["tool_box[yt-dl,concert-planner,commute-heat-map,paint-by-numbers]"]
+all = ["tool_box[yt-dl,concert-planner,commute-heatmap,paint-by-numbers]"]
 
 [project.scripts]
 yt-dl = "tool_box.youtube_download.main:main"
 concert-planner = "tool_box.concert_planner.main:main"
-commute-heat-map = "tool_box.commute_heat_map.main:main"
+commute-heatmap = "tool_box.commute_heatmap.main:main"
 paint-by-numbers = "tool_box.paint_by_numbers.main:main"
 
 [project.urls]

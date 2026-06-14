@@ -5,7 +5,7 @@ import requests
 
 from PIL import Image
 
-from tool_box.commute_heat_map.proj import Point
+from tool_box.commute_heatmap.proj import Point
 
 class GoogleMaps(object):
     """Wrapper around the GoogleMap APIs.

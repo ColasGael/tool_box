@@ -1,0 +1,8 @@
+api_key.txt
+**/commute_heatmap*.np*
+**/commute_heatmap*.png
+**/static_map*.png
+debug/*
+
+# Example images referenced in README
+!images/commute_heatmap*.png

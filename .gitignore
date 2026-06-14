@@ -1,6 +1,3 @@
-# Tools artifacts
-commute_heat_map.png
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

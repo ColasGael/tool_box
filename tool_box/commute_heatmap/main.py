@@ -7,8 +7,8 @@ import numpy as np
 from PIL import Image
 from scipy.interpolate import griddata
 
-from tool_box.commute_heat_map.proj import Proj
-from tool_box.commute_heat_map.google_maps import GoogleMaps
+from tool_box.commute_heatmap.proj import Proj
+from tool_box.commute_heatmap.google_maps import GoogleMaps
 
 
 def get_args(args=None):
@@ -33,9 +33,9 @@ def get_args(args=None):
         help="Path to the API key file"
     )
     parser.add_argument(
-        "--heat-map-array-path",
+        "--heatmap-array-path",
         type=str,
-        default=os.path.join(os.path.dirname(__file__), "commute_heat_map.npy"),
+        default=os.path.join(os.path.dirname(__file__), "commute_heatmap.npy"),
         help="Path to save the heat map array (in .npy format)"
     )
     parser.add_argument(
@@ -47,24 +47,24 @@ def get_args(args=None):
     return args
 
 
-def render_heat_map(heat_map: np.ndarray, args, debug=False) -> Image.Image:
+def render_heatmap(heatmap: np.ndarray, args, debug=False) -> Image.Image:
     # Interpolate NaN values
-    x = np.arange(heat_map.shape[1])
-    y = np.arange(heat_map.shape[0])
+    x = np.arange(heatmap.shape[1])
+    y = np.arange(heatmap.shape[0])
     xx, yy = np.meshgrid(x, y)
-    valid_mask = ~np.isnan(heat_map)
-    heat_map = griddata(
+    valid_mask = ~np.isnan(heatmap)
+    heatmap = griddata(
         (xx[valid_mask], yy[valid_mask]),
-        heat_map[valid_mask],
+        heatmap[valid_mask],
         (xx, yy),
         method='cubic',
     )
     # Convert to minutes
-    heat_map = heat_map // 60
+    heatmap = heatmap // 60
 
     # Visualize the heat map
     plt.imshow(
-        heat_map,
+        heatmap,
         origin='lower',
         extent=(args.sw_point_x, args.ne_point_x, args.sw_point_y, args.ne_point_y),
         cmap='jet_r',  # gradient from red (short commute) to blue (long commute)
@@ -96,7 +96,7 @@ def render_heat_map(heat_map: np.ndarray, args, debug=False) -> Image.Image:
     return Image.open(buffer)
 
 
-def build_heat_map(gmaps, proj, args) -> np.ndarray:
+def build_heatmap(gmaps, proj, args) -> np.ndarray:
     origin_point = gmaps.get_point(args.origin)
 
     # Build a grid of points covering the city bounds
@@ -104,7 +104,7 @@ def build_heat_map(gmaps, proj, args) -> np.ndarray:
     grid_y = np.arange(args.sw_point_y, args.ne_point_y + args.grid_size, args.grid_size)
 
     # Compute commute times for each point in the grid
-    heat_map = np.full((len(grid_y), len(grid_x)), -1, dtype=float)
+    heatmap = np.full((len(grid_y), len(grid_x)), -1, dtype=float)
     for j, y in enumerate(grid_y):
         for i, x in enumerate(grid_x):
             grid_point = proj.to_latlon(x, y)
@@ -116,9 +116,9 @@ def build_heat_map(gmaps, proj, args) -> np.ndarray:
             except Exception as e:
                 travel_time = np.nan
                 print(f"WARNING: Could not compute commute time from {origin_point} to {grid_point}, due to: {e}")
-            heat_map[j, i] = travel_time
+            heatmap[j, i] = travel_time
 
-    return heat_map
+    return heatmap
 
 
 def main():
@@ -138,18 +138,18 @@ def main():
     args.ne_point_x, args.ne_point_y = proj.to_xy(ne_point)
 
     # Get the heat map
-    if os.path.exists(args.heat_map_array_path):
-        print(f"Loading pre-computed heat map from {args.heat_map_array_path}...")
-        heat_map = np.load(args.heat_map_array_path)
+    if os.path.exists(args.heatmap_array_path):
+        print(f"Loading pre-computed heat map from {args.heatmap_array_path}...")
+        heatmap = np.load(args.heatmap_array_path)
     else:
         print(f"Building heat map for {args.city} from {args.origin}...")
-        heat_map = build_heat_map(gmaps, proj, args)
-        np.save(args.heat_map_array_path, heat_map)
-    heat_map_image = render_heat_map(heat_map, args, debug=args.debug)
+        heatmap = build_heatmap(gmaps, proj, args)
+        np.save(args.heatmap_array_path, heatmap)
+    heatmap_image = render_heatmap(heatmap, args, debug=args.debug)
 
     if args.debug:
-        heat_map_image.save(os.path.join(os.path.dirname(__file__), 'commute_heat_map_debug.png'))
-        heat_map_image.show()
+        heatmap_image.save(os.path.join(os.path.dirname(__file__), 'commute_heatmap_debug.png'))
+        heatmap_image.show()
 
     # Convert the city bounds to a center point and an area size (dx, dy)
     center_point = (sw_point + ne_point) / 2
@@ -163,16 +163,16 @@ def main():
         static_map.save(os.path.join(os.path.dirname(__file__), 'static_map_debug.png'))
         static_map.show()
 
-    static_map = static_map.resize(heat_map_image.size)
+    static_map = static_map.resize(heatmap_image.size)
 
     # Overlay the heat map on the static map
     if not args.debug:
         final_image = Image.blend(
             static_map.convert("RGBA"),
-            heat_map_image.convert("RGBA"),
+            heatmap_image.convert("RGBA"),
             alpha=0.65
         )
-        final_image.save(os.path.join(os.path.dirname(__file__), 'commute_heat_map_final.png'))
+        final_image.save(os.path.join(os.path.dirname(__file__), 'commute_heatmap_final.png'))
 
 
 if __name__ == "__main__":
@@ -185,23 +185,23 @@ if __name__ == "__main__":
     args.ne_point_x, args.ne_point_y = 10000, 10000
 
     # Build a synthetic heat map
-    heat_map = np.zeros((
+    heatmap = np.zeros((
         args.ne_point_y // args.grid_size + 1,
         args.ne_point_x // args.grid_size + 1
     ))
     # - radiating from an off-center point
     center_x, center_y = 20, 20
-    for j in range(heat_map.shape[0]):
-        for i in range(heat_map.shape[1]):
+    for j in range(heatmap.shape[0]):
+        for i in range(heatmap.shape[1]):
             distance = np.sqrt((i - center_x) ** 2 + (j - center_y) ** 2)
-            heat_map[j, i] = distance * 10  # Commute time increases with distance
+            heatmap[j, i] = distance * 10  # Commute time increases with distance
     # - with some noise
-    heat_map += np.random.rand(*heat_map.shape) * 500
+    heatmap += np.random.rand(*heatmap.shape) * 500
     # - add some random NaN values to simulate unreachable areas
     for _ in range(100):
-        i = np.random.randint(0, heat_map.shape[1])
-        j = np.random.randint(0, heat_map.shape[0])
-        heat_map[j, i] = np.nan
+        i = np.random.randint(0, heatmap.shape[1])
+        j = np.random.randint(0, heatmap.shape[0])
+        heatmap[j, i] = np.nan
 
-    heat_map_image = render_heat_map(heat_map, args, debug=True)
-    heat_map_image.show()
+    heatmap_image = render_heatmap(heatmap, args, debug=True)
+    heatmap_image.show()
