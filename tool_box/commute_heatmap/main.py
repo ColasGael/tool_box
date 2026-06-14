@@ -124,12 +124,48 @@ def render_heatmap(heatmap: np.ndarray, args, debug=False) -> Image.Image:
     return Image.open(buffer)
 
 
-def make_final_image(heatmap_image: Image.Image, static_map: Image.Image) -> Image.Image:
+def render_scale(vmin: int, vmax: int, width: int, height: int) -> Image.Image:
+    dpi = 100
+    fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi, facecolor='none')
+
+    ax = fig.add_axes([0.4, 0.05, 0.2, 0.90])
+    norm = plt.Normalize(vmin=vmin, vmax=vmax)
+    sm = plt.cm.ScalarMappable(cmap='jet_r', norm=norm)
+    cbar = plt.colorbar(sm, cax=ax)
+    cbar.outline.set_edgecolor('white')
+    tick_fontsize = max(5, int(width * 0.1 / dpi * 72))
+    cbar.ax.tick_params(labelsize=tick_fontsize, colors='white')
+    cbar.ax.set_xlabel('min', color='white', fontsize=tick_fontsize)
+
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format='png', transparent=True)  # no bbox_inches: exact (width, height) output
+    plt.close(fig)
+
+    return Image.open(buffer).convert("RGBA")
+
+
+def make_final_image(
+        heatmap_image: Image.Image,
+        static_map: Image.Image,
+        heatmap_min: int,
+        heatmap_max: int,
+        args)-> Image.Image:
+
     final_image = Image.blend(
         static_map.convert("RGBA"),
         heatmap_image.convert("RGBA"),
         alpha=0.65
     )
+
+    map_w, map_h = final_image.size
+    margin = map_w // 50
+
+    # Scale: small colorbar overlaid top-left
+    scale_w = map_w // 15
+    scale_h = map_h // 3
+    scale_img = render_scale(heatmap_min, heatmap_max, scale_w, scale_h)
+    final_image.alpha_composite(scale_img, (margin, margin))
+
     return final_image
 
 
@@ -181,7 +217,9 @@ def main():
 
     # Overlay the heat map on the static map
     if not args.debug:
-        final_image = make_final_image(heatmap_image, static_map)
+        heatmap_min = int(np.min(heatmap))
+        heatmap_max = int(np.max(heatmap))
+        final_image = make_final_image(heatmap_image, static_map, heatmap_min, heatmap_max, args)
         final_image.save(os.path.join(os.path.dirname(__file__), 'commute_heatmap_final.png'))
 
 
