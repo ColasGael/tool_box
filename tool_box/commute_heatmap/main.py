@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import io
 import os.path
 
@@ -43,7 +44,23 @@ def get_args(args=None):
         action='store_true',
         help="Whether to show and save the intermediate images"
     )
+    # Cartel arguments
+    parser.add_argument(
+        "--author",
+        type=str,
+        default="UNKNOWN",
+        help="Author of the art (included in cartel)"
+    )
+    parser.add_argument(
+        "--title",
+        type=str,
+        help="Title of the art (included in cartel)"
+    )
     args = parser.parse_args(args)
+
+    if args.title is None:
+        args.title = f"Commute heatmap from {args.origin}"
+
     return args
 
 
@@ -144,6 +161,26 @@ def render_scale(vmin: int, vmax: int, width: int, height: int) -> Image.Image:
     return Image.open(buffer).convert("RGBA")
 
 
+def render_cartel(width: int, height: int, args) -> Image.Image:
+    dpi = 100
+    fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi)
+
+    date = datetime.date.today().strftime("%A %Y/%m/%d")
+    title = f"{args.title} ({date})"
+    technique = "Google Maps API"
+
+    font_base = max(6, int(height / dpi * 72 / 6))
+    fig.text(0.5, 0.75, args.author, ha='center', va='center', fontsize=font_base + 1, fontweight='bold')
+    fig.text(0.5, 0.50, title, ha='center', va='center', fontsize=font_base, fontstyle='italic')
+    fig.text(0.5, 0.25, technique, ha='center', va='center', fontsize=font_base - 1)
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', facecolor=(1, 1, 1, 0.5))  # transparent (opacity 50%)
+    plt.close(fig)
+
+    return Image.open(buf).convert("RGBA")
+
+
 def make_final_image(
         heatmap_image: Image.Image,
         static_map: Image.Image,
@@ -165,6 +202,12 @@ def make_final_image(
     scale_h = map_h // 3
     scale_img = render_scale(heatmap_min, heatmap_max, scale_w, scale_h)
     final_image.alpha_composite(scale_img, (margin, margin))
+
+    # Cartel: plaque at bottom center
+    cartel_w = map_w // 5
+    cartel_h = map_h // 20
+    cartel_img = render_cartel(cartel_w, cartel_h, args)
+    final_image.alpha_composite(cartel_img, ((map_w - cartel_w) // 2, map_h - cartel_h - margin))
 
     return final_image
 
